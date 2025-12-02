@@ -44,6 +44,11 @@ func main() {
 	// Run migrations
 	database.RunMigrations(db)
 
+	// Seed data
+	if err := database.SeedData(db); err != nil {
+		log.Printf("Warning: Failed to seed data: %v", err)
+	}
+
 	// Setup router
 	router := gin.Default()
 

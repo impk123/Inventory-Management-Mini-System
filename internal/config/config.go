@@ -26,7 +26,7 @@ func LoadConfig() (*Config, error) {
 		JWTSecret:          getEnv("JWT_SECRET", "secret"),
 		GoogleClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
-		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3100"),
+		FrontendURL:        getEnv("FRONTEND_URL", "http://localhost:3000"),
 	}, nil
 }
 

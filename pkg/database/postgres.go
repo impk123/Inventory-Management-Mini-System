@@ -16,6 +16,7 @@ var DB *gorm.DB
 func InitPostgres(dsn string) (*gorm.DB, error) {
 	var err error
 
+	log.Printf("Connecting to database with DSN: %s", dsn)
 	// Config Logger
 	newLogger := logger.New(
 		log.New(log.Writer(), "\r\n", log.LstdFlags),
@@ -93,10 +94,10 @@ func createIndexes(db *gorm.DB) {
 
 	// Stock  indexes
 	db.Exec(`
-		CREATE INDEX IF NOT EXISTS idx_stock_product_id ON stock(product_id);
-		CREATE INDEX IF NOT EXISTS idx_stock_created_at ON stock(created_at);
-		CREATE INDEX IF NOT EXISTS idx_stock_type ON stock(type);
-		CREATE INDEX IF NOT EXISTS idx_stock_reference ON stock(reference);
+		CREATE INDEX IF NOT EXISTS idx_stocks_product_id ON stocks(product_id);
+		CREATE INDEX IF NOT EXISTS idx_stocks_created_at ON stocks(created_at);
+		CREATE INDEX IF NOT EXISTS idx_stocks_type ON stocks(type);
+		CREATE INDEX IF NOT EXISTS idx_stocks_reference ON stocks(reference);
 	`)
 
 	log.Println("✅ Database indexes created/verified")
