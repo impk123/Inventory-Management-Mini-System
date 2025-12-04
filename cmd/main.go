@@ -7,10 +7,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/impk123/Inventory-Management-Mini-System/internal/config"
 	"github.com/impk123/Inventory-Management-Mini-System/internal/handlers"
+	"github.com/impk123/Inventory-Management-Mini-System/internal/middleware"
 	"github.com/impk123/Inventory-Management-Mini-System/pkg/cache"
 	"github.com/impk123/Inventory-Management-Mini-System/pkg/database"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+
+	_ "github.com/impk123/Inventory-Management-Mini-System/docs"
 )
 
 // @title Inventory Management Mini System API
@@ -52,14 +55,14 @@ func main() {
 	// Setup router
 	router := gin.Default()
 
-	// Setup middleware
-	// authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
+	//Setup middleware
+	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret, db)
 	// cacheMiddleware := middleware.NewCacheMiddleware(redisClient)
 
 	// Setup handlers
 	authHandler := handlers.NewAuthHandler(db, cfg)
-	// productHandler := handlers.NewProductHandler(db, redisClient)
-	// stockHandler := handlers.NewStockHandler(db, redisClient)
+	productHandler := handlers.NewProductHandler(db, redisClient)
+	stockHandler := handlers.NewStockHandler(db)
 
 	// Public routers
 	public := router.Group("/api/v1")
@@ -69,6 +72,28 @@ func main() {
 		public.GET("/auth/google", authHandler.GoogleLogin)
 		public.GET("/auth/google/callback", authHandler.GoogleCallback)
 		public.GET("/health", handlers.HealthCheck)
+	}
+
+	// Protected routers
+	protected := router.Group("/api/v1")
+	protected.Use(authMiddleware.ValidateJWT())
+	{
+		// Product manage
+		product := protected.Group("/products")
+		{
+			product.GET("", productHandler.GetProducts)
+			product.POST("", productHandler.CreateProduct)
+			product.PUT("/:id", productHandler.UpdateProduct)
+			product.DELETE("/:id", productHandler.DeleteProduct)
+		}
+
+		// Stock manage
+		stock := protected.Group("/stocks")
+		{
+			stock.GET("", stockHandler.GetCurrentStock)
+			stock.GET("product/:id", stockHandler.GetStockHistory)
+			stock.POST("", stockHandler.CreateStockMovement)
+		}
 	}
 
 	// Swagger

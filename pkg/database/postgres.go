@@ -147,7 +147,7 @@ func SeedData(db *gorm.DB) error {
 		// Create admin user
 		admin := models.User{
 			Email:       "admin@inventory.com",
-			Password:    "$2a$12$K9S6N8Uv7iWQYH4lX2mZFe.8cJg3qR5sT", // password: admin123
+			Password:    "$2a$10$PGOLyMi9g93ac6a2W1ROtuRENRfZwrDBtuPD9.bJPYmiEZrnthDxK", // password: admin123
 			Name:        "Admin User",
 			Role:        "admin",
 			IsActive:    true,

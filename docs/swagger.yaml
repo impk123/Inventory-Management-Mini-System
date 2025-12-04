@@ -1,0 +1,613 @@
+basePath: /
+definitions:
+  handlers.AuthResponse:
+    properties:
+      message:
+        type: string
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/handlers.UserResponse'
+    type: object
+  handlers.CreateProductRequest:
+    properties:
+      category:
+        type: string
+      cost_price:
+        type: number
+      description:
+        type: string
+      location:
+        type: string
+      max_quantity:
+        minimum: 0
+        type: integer
+      min_quantity:
+        minimum: 0
+        type: integer
+      name:
+        type: string
+      quantity:
+        minimum: 0
+        type: integer
+      sku:
+        type: string
+      unit_price:
+        type: number
+    required:
+    - name
+    - sku
+    - unit_price
+    type: object
+  handlers.CurrentStockResponse:
+    properties:
+      limit:
+        type: integer
+      low_stock:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      low_stock_count:
+        type: integer
+      page:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  handlers.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  handlers.MessageResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  handlers.ProductListResponse:
+    properties:
+      limit:
+        type: integer
+      page:
+        type: integer
+      pages:
+        type: integer
+      products:
+        items:
+          $ref: '#/definitions/models.Product'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  handlers.StockHistoryResponse:
+    properties:
+      movements:
+        items:
+          $ref: '#/definitions/models.Stock'
+        type: array
+      stock:
+        items:
+          $ref: '#/definitions/models.Stock'
+        type: array
+    type: object
+  handlers.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      role:
+        type: string
+    type: object
+  models.Product:
+    properties:
+      category:
+        type: string
+      cost_price:
+        type: number
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      location:
+        type: string
+      max_quantity:
+        type: integer
+      min_quantity:
+        type: integer
+      name:
+        type: string
+      quantity:
+        type: integer
+      sku:
+        type: string
+      unit_price:
+        type: number
+      updated_at:
+        type: string
+      updated_by:
+        type: integer
+    type: object
+  models.Stock:
+    properties:
+      created_at:
+        type: string
+      created_by:
+        type: integer
+      id:
+        type: integer
+      new_quantity:
+        type: integer
+      notes:
+        type: string
+      old_quantity:
+        type: integer
+      product:
+        $ref: '#/definitions/models.Product'
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      reference:
+        description: PO number, Sales order, etc.
+        type: string
+      type:
+        description: IN, OUT, ADJUST
+        type: string
+      updated_at:
+        type: string
+      updated_by:
+        type: integer
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  models.StockUpdateRequest:
+    properties:
+      notes:
+        type: string
+      product_id:
+        type: integer
+      quantity:
+        type: integer
+      type:
+        enum:
+        - IN
+        - OUT
+        - ADJUST
+        type: string
+    required:
+    - product_id
+    - quantity
+    - type
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      google_id:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      last_login_at:
+        type: string
+      name:
+        type: string
+      role:
+        type: string
+      updated_at:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Inventory Management Mini System API
+  title: Inventory Management Mini System API
+  version: "1.0"
+paths:
+  /auth/google:
+    get:
+      description: Redirect to Google OAuth2 login
+      responses:
+        "302":
+          description: Found
+      summary: Login with Google
+      tags:
+      - auth
+  /auth/google/callback:
+    get:
+      description: Handle Google OAuth2 callback
+      parameters:
+      - description: Authorization code
+        in: query
+        name: code
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Google OAuth2 callback
+      tags:
+      - auth
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Login with email and password
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Login user
+      tags:
+      - auth
+  /products:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all products with pagination and filtering
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      - description: Category filter
+        in: query
+        name: category
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ProductListResponse'
+      security:
+      - BearerAuth: []
+      summary: Get all products
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Create a new product with the given details
+      parameters:
+      - description: Product details
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product created successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new product
+      tags:
+      - products
+  /products/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Soft delete a product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product deleted successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete a product
+      tags:
+      - products
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information of a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get a product by ID
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Update an existing product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Product details
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product updated successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update a product
+      tags:
+      - products
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: Register with email and password
+      parameters:
+      - description: Registration details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - auth
+  /stocks:
+    get:
+      consumes:
+      - application/json
+      description: Get current stock levels for all products
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CurrentStockResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current stock
+      tags:
+      - stocks
+    post:
+      consumes:
+      - application/json
+      description: Record a new stock movement (IN, OUT, ADJUST)
+      parameters:
+      - description: Stock movement details
+        in: body
+        name: movement
+        required: true
+        schema:
+          $ref: '#/definitions/models.StockUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Stock updated successfully
+          schema:
+            $ref: '#/definitions/handlers.MessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a stock movement
+      tags:
+      - stocks
+  /stocks/product/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get stock movement history for a specific product
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.StockHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get stock history
+      tags:
+      - stocks
+swagger: "2.0"

@@ -3,11 +3,12 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"github.com/impk123/Inventory-Management-Mini-System/internal/config"
-	"github.com/impk123/Inventory-Management-Mini-System/internal/models"
 	"log"
 	"net/http"
 	"time"
+
+	"github.com/impk123/Inventory-Management-Mini-System/internal/config"
+	"github.com/impk123/Inventory-Management-Mini-System/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
@@ -42,17 +43,37 @@ func NewAuthHandler(db *gorm.DB, cfg *config.Config) *AuthHandler {
 	}
 }
 
-// RegisterRequest defines the request structure for registration
+// RegisterRequest
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 	Name     string `json:"name" binding:"required"`
 }
 
-// LoginRequest defines the request structure for login
+// LoginRequest
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
+}
+
+// AuthResponse
+type AuthResponse struct {
+	Message string        `json:"message"`
+	Token   string        `json:"token,omitempty"`
+	User    *UserResponse `json:"user,omitempty"`
+}
+
+// UserResponse
+type UserResponse struct {
+	ID    uint   `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+	Role  string `json:"role"`
+}
+
+// ErrorResponse
+type ErrorResponse struct {
+	Error string `json:"error"`
 }
 
 // Register godoc
@@ -62,28 +83,29 @@ type LoginRequest struct {
 // @Accept json
 // @Produce json
 // @Param request body RegisterRequest true "Registration details"
-// @Success 201 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 500 {object} map[string]interface{}
+// @Success 201 {object} AuthResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 409 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
 // @Router /register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Check if user exists
 	var existingUser models.User
 	if err := h.db.Where("email = ?", req.Email).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+		c.JSON(http.StatusConflict, ErrorResponse{Error: "User already exists"})
 		return
 	}
 
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to hash password"})
 		return
 	}
 
@@ -97,21 +119,21 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := h.db.Create(&user).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user"})
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to create user"})
 		return
 	}
 
 	// Generate token
 	token := h.generateToken(user)
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "User registered successfully",
-		"token":   token,
-		"user": gin.H{
-			"id":    user.ID,
-			"email": user.Email,
-			"name":  user.Name,
-			"role":  user.Role,
+	c.JSON(http.StatusCreated, AuthResponse{
+		Message: "User registered successfully",
+		Token:   token,
+		User: &UserResponse{
+			ID:    user.ID,
+			Email: user.Email,
+			Name:  user.Name,
+			Role:  user.Role,
 		},
 	})
 }
@@ -123,27 +145,27 @@ func (h *AuthHandler) Register(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param request body LoginRequest true "Login credentials"
-// @Success 200 {object} map[string]interface{}
-// @Failure 400 {object} map[string]interface{}
-// @Failure 401 {object} map[string]interface{}
+// @Success 200 {object} AuthResponse
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
 // @Router /login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	// Find user
 	var user models.User
 	if err := h.db.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Invalid credentials"})
 		return
 	}
 
 	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		c.JSON(http.StatusUnauthorized, ErrorResponse{Error: "Invalid credentials"})
 		return
 	}
 
@@ -154,14 +176,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// Generate token
 	token := h.generateToken(user)
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Login successful",
-		"token":   token,
-		"user": gin.H{
-			"id":    user.ID,
-			"email": user.Email,
-			"name":  user.Name,
-			"role":  user.Role,
+	c.JSON(http.StatusOK, AuthResponse{
+		Message: "Login successful",
+		Token:   token,
+		User: &UserResponse{
+			ID:    user.ID,
+			Email: user.Email,
+			Name:  user.Name,
+			Role:  user.Role,
 		},
 	})
 }
