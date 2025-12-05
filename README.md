@@ -71,64 +71,13 @@
     go run cmd/main.go
     ```
 
-## 📚 API Documentation
+## 📚 Documentation
+
+*   **[API Documentation (Swagger Guide)](docs/API_GUIDE.md)**: วิธีการใช้งาน API และรายละเอียด Endpoint
+*   **[Database Schema (ER Diagram)](docs/ER_DIAGRAM.md)**: โครงสร้างฐานข้อมูลและความสัมพันธ์
 
 สามารถเข้าดูและทดสอบ API ผ่าน Swagger UI ได้ที่:
-
 > **[http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)**
-
-*(ต้องรัน Server ก่อนใช้งาน)*
-
-## �️ Database Schema
-
-โครงสร้างฐานข้อมูลและความสัมพันธ์ระหว่างตาราง (ER Diagram)
-
-```mermaid
-erDiagram
-    User ||--o{ Product : "CreatedBy"
-    User ||--o{ Stock : "CreatedBy"
-    Product ||--o{ Stock : "Has History"
-
-    User {
-        uint ID PK
-        string Email UK
-        string Password
-        string GoogleID UK
-        string Name
-        string Role
-        bool IsActive
-        time CreatedAt
-        time UpdatedAt
-    }
-
-    Product {
-        uint ID PK
-        string SKU UK
-        string Name
-        string Description
-        string Category
-        float UnitPrice
-        float CostPrice
-        int Quantity
-        int MinQuantity
-        int MaxQuantity
-        string Location
-        bool IsActive
-        uint CreatedBy FK
-    }
-
-    Stock {
-        uint ID PK
-        uint ProductID FK
-        string Type "IN, OUT, ADJUST"
-        int Quantity
-        int OldQuantity
-        int NewQuantity
-        string Reference
-        string Notes
-        uint CreatedBy FK
-    }
-```
 
 ## �📂 โครงสร้างโปรเจกต์ (Project Structure)
 
@@ -149,4 +98,4 @@ Inventory-Management-Mini-System/
 ```
 
 ---
-Developed by You
+Developed by Impk123
