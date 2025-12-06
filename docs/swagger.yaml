@@ -78,21 +78,6 @@ definitions:
       message:
         type: string
     type: object
-  handlers.ProductListResponse:
-    properties:
-      limit:
-        type: integer
-      page:
-        type: integer
-      pages:
-        type: integer
-      products:
-        items:
-          $ref: '#/definitions/models.Product'
-        type: array
-      total:
-        type: integer
-    type: object
   handlers.RegisterRequest:
     properties:
       email:
@@ -307,41 +292,6 @@ paths:
       tags:
       - auth
   /products:
-    get:
-      consumes:
-      - application/json
-      description: Get a list of all products with pagination and filtering
-      parameters:
-      - default: 1
-        description: Page number
-        in: query
-        name: page
-        type: integer
-      - default: 20
-        description: Items per page
-        in: query
-        name: limit
-        type: integer
-      - description: Search term
-        in: query
-        name: search
-        type: string
-      - description: Category filter
-        in: query
-        name: category
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.ProductListResponse'
-      security:
-      - BearerAuth: []
-      summary: Get all products
-      tags:
-      - products
     post:
       consumes:
       - application/json

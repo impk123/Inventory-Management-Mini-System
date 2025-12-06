@@ -7,17 +7,21 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/impk123/Inventory-Management-Mini-System/internal/models"
+	"github.com/impk123/Inventory-Management-Mini-System/pkg/cache"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
 // StockHandler holds dependencies for stock handling
 type StockHandler struct {
-	db *gorm.DB
+	db    *gorm.DB
+	cache *redis.Client
 }
 
-func NewStockHandler(db *gorm.DB) *StockHandler {
+func NewStockHandler(db *gorm.DB, cache *redis.Client) *StockHandler {
 	return &StockHandler{
-		db: db,
+		db:    db,
+		cache: cache,
 	}
 }
 
@@ -92,7 +96,7 @@ func (h *StockHandler) CreateStockMovement(c *gin.Context) {
 			CreatedBy:   userID.(uint),
 			CreatedAt:   time.Now(),
 		}
-		c.JSON(http.StatusOK, gin.H{"message": "Stock updated successfully"})
+
 		return tx.Create(&movement).Error
 	})
 
@@ -100,6 +104,19 @@ func (h *StockHandler) CreateStockMovement(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create stock movement"})
 		return
 	}
+
+	// Invalidate Caches
+	// 1. Stock Lists (History & Current Stock) --> เพราะมี Movement ใหม่
+	cache.InvalidateStockList(h.cache, c.Request.Context())
+
+	// 2. Product Lists --> เพราะ Quantity เปลี่ยน
+	cache.InvalidateProductList(h.cache, c.Request.Context())
+
+	// 3. Specific Product --> เพราะ Quantity เปลี่ยน
+	productCacheKey := cache.GenerateProductKey(req.ProductID)
+	h.cache.Del(c.Request.Context(), productCacheKey)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Stock updated successfully"})
 
 }
 
@@ -123,6 +140,22 @@ func (h *StockHandler) GetStockHistory(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
 		return
 	}
+	// 1. Try Cache
+	// ใช้ GenerateStockHistoryKey แทน เพื่อให้ Key มี ID ของสินค้า และไม่ชนกับ GetCurrentStock
+	cacheKey := cache.GenerateStockHistoryKey(h.cache, c.Request.Context(), id, c.Request.URL.Query())
+	type HistoryResponse struct {
+		Stock     []models.Stock `json:"stock"`
+		Movements []models.Stock `json:"movements"`
+	}
+	var cachedResp HistoryResponse
+	if err := cache.GetCached(h.cache, c.Request.Context(), cacheKey, &cachedResp); err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"stock":     cachedResp.Stock,
+			"movements": cachedResp.Movements,
+		})
+		return
+	}
+
 	var stock []models.Stock
 	if err := h.db.Where("product_id = ?", id).Find(&stock).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Stock not found"})
@@ -134,6 +167,14 @@ func (h *StockHandler) GetStockHistory(c *gin.Context) {
 		Order("created_at DESC").
 		Limit(100).
 		Find(&movements)
+
+	response := HistoryResponse{
+		Stock:     stock,
+		Movements: movements,
+	}
+
+	// 2. Set Cache
+	cache.SetCached(h.cache, c.Request.Context(), cacheKey, response, 30*time.Minute)
 
 	c.JSON(http.StatusOK, gin.H{
 		"stock":     stock,
@@ -159,6 +200,29 @@ func (h *StockHandler) GetCurrentStock(c *gin.Context) {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset := (page - 1) * limit
 
+	// 1. Try Cache
+	cacheKey := cache.GenerateStockListKey(h.cache, c.Request.Context(), c.Request.URL.Query())
+	type CurrentStockResponse struct {
+		Products      []models.Product `json:"products"`
+		Total         int64            `json:"total"`
+		Page          int              `json:"page"`
+		Limit         int              `json:"limit"`
+		LowStock      []models.Product `json:"low_stock"`
+		LowStockCount int              `json:"low_stock_count"`
+	}
+	var cachedResp CurrentStockResponse
+	if err := cache.GetCached(h.cache, c.Request.Context(), cacheKey, &cachedResp); err == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"products":        cachedResp.Products,
+			"total":           cachedResp.Total,
+			"page":            cachedResp.Page,
+			"limit":           cachedResp.Limit,
+			"low_stock":       cachedResp.LowStock,
+			"low_stock_count": cachedResp.LowStockCount,
+		})
+		return
+	}
+
 	var products []models.Product
 	var total int64
 
@@ -169,6 +233,18 @@ func (h *StockHandler) GetCurrentStock(c *gin.Context) {
 	// Get low stock items
 	var lowStock []models.Product
 	h.db.Where("quantity <= min_quantity").Find(&lowStock)
+
+	response := CurrentStockResponse{
+		Products:      products,
+		Total:         total,
+		Page:          page,
+		Limit:         limit,
+		LowStock:      lowStock,
+		LowStockCount: len(lowStock),
+	}
+
+	// 2. Set Cache
+	cache.SetCached(h.cache, c.Request.Context(), cacheKey, response, 30*time.Minute)
 
 	c.JSON(http.StatusOK, gin.H{
 		"products":        products,

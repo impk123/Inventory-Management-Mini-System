@@ -57,12 +57,11 @@ func main() {
 
 	//Setup middleware
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret, db)
-	// cacheMiddleware := middleware.NewCacheMiddleware(redisClient)
 
 	// Setup handlers
 	authHandler := handlers.NewAuthHandler(db, cfg)
 	productHandler := handlers.NewProductHandler(db, redisClient)
-	stockHandler := handlers.NewStockHandler(db)
+	stockHandler := handlers.NewStockHandler(db, redisClient)
 
 	// Public routers
 	public := router.Group("/api/v1")
@@ -82,6 +81,7 @@ func main() {
 		product := protected.Group("/products")
 		{
 			product.GET("", productHandler.GetProducts)
+			product.GET("/:id", productHandler.GetProductByID)
 			product.POST("", productHandler.CreateProduct)
 			product.PUT("/:id", productHandler.UpdateProduct)
 			product.DELETE("/:id", productHandler.DeleteProduct)

@@ -3,8 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
-
-	"context"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -91,8 +90,8 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 		return
 	}
 
-	// Clear cache
-	h.clearProductCache()
+	// Invalidate List Cache
+	cache.InvalidateProductList(h.cache, c.Request.Context())
 
 	c.JSON(http.StatusOK, gin.H{"message": "Product created successfully"})
 
@@ -113,12 +112,21 @@ func (h *ProductHandler) CreateProduct(c *gin.Context) {
 // @Param category query string false "Category filter"
 // @Success 200 {object} ProductListResponse
 // @Router /products [get]
+
 func (h *ProductHandler) GetProducts(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	search := c.Query("search")
 	category := c.Query("category")
 	offset := (page - 1) * limit
+
+	// 1. Try Cache
+	cacheKey := cache.GenerateProductListKey(h.cache, c.Request.Context(), c.Request.URL.Query())
+	var cachedResp ProductListResponse
+	if err := cache.GetCached(h.cache, c.Request.Context(), cacheKey, &cachedResp); err == nil {
+		c.JSON(http.StatusOK, cachedResp)
+		return
+	}
 
 	var products []models.Product
 	var total int64
@@ -137,13 +145,19 @@ func (h *ProductHandler) GetProducts(c *gin.Context) {
 	query.Count(&total)
 	query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&products)
 
-	c.JSON(http.StatusOK, gin.H{
-		"products": products,
-		"total":    total,
-		"page":     page,
-		"limit":    limit,
-		"pages":    (int(total) + limit - 1) / limit,
-	})
+	response := ProductListResponse{
+		Products: products,
+		Total:    total,
+		Page:     page,
+		Limit:    limit,
+		Pages:    (int(total) + limit - 1) / limit,
+	}
+
+	// 2. Set Cache (30 Minutes)
+	// We cache the FULL response, so next time it's instant return
+	cache.SetCached(h.cache, c.Request.Context(), cacheKey, response, 30*time.Minute)
+
+	c.JSON(http.StatusOK, response)
 
 }
 
@@ -170,7 +184,7 @@ func (h *ProductHandler) GetProductByID(c *gin.Context) {
 	// หาใน cache ก่อน
 	cacheKey := cache.GenerateProductKey(uint(id))
 	var product models.Product
-	if err := cache.GetCached(h.cache, cacheKey, &product); err == nil {
+	if err := cache.GetCached(h.cache, c.Request.Context(), cacheKey, &product); err == nil {
 		c.JSON(http.StatusOK, product)
 		return
 	}
@@ -182,7 +196,7 @@ func (h *ProductHandler) GetProductByID(c *gin.Context) {
 	}
 
 	// Cache the result
-	cache.SetCached(h.cache, cacheKey, product, 300) // 5 minutes
+	cache.SetCached(h.cache, c.Request.Context(), cacheKey, product, 5*time.Minute) // 5 minutes
 
 	c.JSON(http.StatusOK, product)
 }
@@ -237,8 +251,8 @@ func (h *ProductHandler) UpdateProduct(c *gin.Context) {
 		return
 	}
 
-	// Clear cache
-	h.clearProductCache()
+	// Invalidate List Cache
+	cache.InvalidateProductList(h.cache, c.Request.Context())
 	cacheKey := cache.GenerateProductKey(uint(id))
 	h.cache.Del(c.Request.Context(), cacheKey)
 
@@ -279,27 +293,11 @@ func (h *ProductHandler) DeleteProduct(c *gin.Context) {
 		return
 	}
 
-	// Clear cache
-	h.clearProductCache()
+	// Invalidate List Cache
+	cache.InvalidateProductList(h.cache, c.Request.Context())
 	cacheKey := cache.GenerateProductKey(uint(id))
 	h.cache.Del(c.Request.Context(), cacheKey)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Product deleted successfully"})
 
-}
-
-func (h *ProductHandler) clearProductCache() {
-	ctx := context.Background()
-	// Clear relevant cache keys
-	keys := []string{
-		"products:*",
-		"stock:*",
-	}
-
-	for _, pattern := range keys {
-		iter := h.cache.Scan(ctx, 0, pattern, 0).Iterator()
-		for iter.Next(ctx) {
-			h.cache.Del(ctx, iter.Val())
-		}
-	}
 }

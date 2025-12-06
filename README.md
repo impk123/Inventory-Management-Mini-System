@@ -48,7 +48,7 @@
     ```bash
     cp .env.example .env
     ```
-    *   แก้ไขไฟล์ `.env` หากต้องการเปลี่ยนค่า Config ต่างๆ (เช่น Google Client ID/Secret)
+    *   แก้ไขไฟล์ `.env` โดยใส่ค่า Config ที่จำเป็น (ดูรายละเอียดที่หัวข้อ Environment Variables ด้านล่าง)
 
 3.  **รันด้วย Docker Compose**
     ```bash
@@ -58,6 +58,7 @@
 
 4.  **ตรวจสอบสถานะ**
     *   Server จะรันอยู่ที่: `http://localhost:8080`
+    *   Swagger Docs: `http://localhost:8080/swagger/index.html`
 
 ### วิธีที่ 2: รันแบบ Local
 
@@ -71,19 +72,41 @@
     go run cmd/main.go
     ```
 
+## 🔐 Environment Variables
+
+ค่าที่ต้องกำหนดในไฟล์ `.env`:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | Connection String สำหรับ PostgreSQL | `postgres://user:pass@localhost:5432/db` |
+| `REDIS_URL` | Address ของ Redis | `localhost:6379` |
+| `SERVER_PORT` | Port ที่ต้องการให้ Server รัน | `8080` |
+| `JWT_SECRET` | Secret Key สำหรับสร้าง Token | `your-secret-key` |
+| `GOOGLE_CLIENT_ID` | Client ID จาก Google Cloud Console | `xxxx.apps.googleusercontent.com` |
+| `GOOGLE_CLIENT_SECRET` | Client Secret จาก Google Cloud Console | `xxxx` |
+| `FRONTEND_URL` | URL ของ Frontend (สำหรับ Redirect หลัง Login) | `http://localhost:3000` |
+| `ALLOWED_ORIGINS` | CORS configuration | `http://localhost:3000` |
+
+## 💻 การพัฒนา (Development)
+
+หากมีการแก้ไข API Code หรือ Comment สำหรับ Swagger สามารถ Regenerate Docs ได้ด้วยคำสั่ง:
+
+```bash
+swag init -g cmd/main.go
+```
+*   ต้องติดตั้ง Swag CLI ก่อน: `go install github.com/swaggo/swag/cmd/swag@latest`
+
 ## 📚 Documentation
 
 *   **[API Documentation (Swagger Guide)](docs/API_GUIDE.md)**: วิธีการใช้งาน API และรายละเอียด Endpoint
+*   **[Redis Caching Guide](docs/REDIS_GUIDE.md)**: อธิบายกลไก Caching และ Key Structure
 *   **[Database Schema (ER Diagram)](docs/ER_DIAGRAM.md)**: โครงสร้างฐานข้อมูลและความสัมพันธ์
 
-สามารถเข้าดูและทดสอบ API ผ่าน Swagger UI ได้ที่:
-> **[http://localhost:8080/swagger/index.html](http://localhost:8080/swagger/index.html)**
-
-## �📂 โครงสร้างโปรเจกต์ (Project Structure)
+## 📂 โครงสร้างโปรเจกต์ (Project Structure)
 
 ```
 Inventory-Management-Mini-System/
-├── cmd/                # Entry point ของโปรแกรม
+├── cmd/                # Entry point ของโปรแกรม main.go
 ├── internal/           # Business Logic หลัก
 │   ├── config/         # การตั้งค่าระบบ (Env, DB)
 │   ├── handlers/       # HTTP Handlers (Controller)
@@ -91,8 +114,10 @@ Inventory-Management-Mini-System/
 │   ├── repositories/   # Data Access Layer
 │   ├── routes/         # การกำหนด Route ของ Gin
 │   └── services/       # Business Logic Layer
-├── pkg/                # Packages เสริม (Utils, Middleware)
-├── docs/               # Swagger Documentation Files
+├── pkg/                # Packages เสริม (Utils, Middleware, Redis)
+├── docs/               # Swagger Documentation Files และเอกสารอื่นๆ
+├── api/                # Generated API docs
+├── logs/               # Application Logs
 ├── docker-compose.yml  # Docker Compose Config
 └── README.md           # เอกสารช่วยสอน
 ```
